@@ -1,6 +1,7 @@
 package com.Gym_PT.Gym_PT.controller;
 
-import com.Gym_PT.Gym_PT.entity.UserProfile;
+import com.Gym_PT.Gym_PT.dto.UserProfileDto;
+import com.Gym_PT.Gym_PT.dto.UserProfileRequest;
 import com.Gym_PT.Gym_PT.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,16 +14,16 @@ public class UserProfileController {
     private final UserProfileService profileService;
 
     @GetMapping
-    public ResponseEntity<UserProfile> getProfile(@PathVariable Long userId) {
+    public ResponseEntity<UserProfileDto> getProfile(@PathVariable Long userId) {
         return profileService.getByUserId(userId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping
-    public ResponseEntity<UserProfile> upsertProfile(
+    public ResponseEntity<UserProfileDto> upsertProfile(
             @PathVariable Long userId,
-            @RequestBody UserProfile body
+            @RequestBody UserProfileRequest body
     ) {
         return ResponseEntity.ok(profileService.upsert(userId, body));
     }
