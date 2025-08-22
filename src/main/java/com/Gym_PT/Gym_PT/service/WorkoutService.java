@@ -3,7 +3,7 @@ package com.Gym_PT.Gym_PT.service;
 import com.Gym_PT.Gym_PT.dto.WorkoutRequestDto;
 import com.Gym_PT.Gym_PT.dto.WorkoutResponseDto;
 import com.Gym_PT.Gym_PT.entity.*;
-import com.Gym_PT.Gym_PT.repository.UserRepository;
+import com.Gym_PT.Gym_PT.repository.UsersRepository;              // ← 변경
 import com.Gym_PT.Gym_PT.repository.WorkoutRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,13 +15,13 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class WorkoutService {
 
-    private final UserRepository userRepository;
+    private final UsersRepository usersRepository;
     private final WorkoutRecordRepository workoutRecordRepository;
 
     @Transactional
     public WorkoutRequestDto saveWorkout(Long userId, WorkoutRequestDto dto) {
 
-        User user = userRepository.findById(userId)
+        Users user = usersRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         WorkoutRecord workoutRecord = new WorkoutRecord();
@@ -34,7 +34,7 @@ public class WorkoutService {
                 run.setRunningName(r.getRunningName());
                 run.setSpeed(r.getSpeed());
                 run.setDuration(r.getDuration());
-                run.setWorkoutRecord(workoutRecord); // 양방향 관계 설정
+                run.setWorkoutRecord(workoutRecord);
                 workoutRecord.getRunningRecords().add(run);
             }
         }
@@ -63,9 +63,9 @@ public class WorkoutService {
         }
 
         workoutRecordRepository.save(workoutRecord);
-
         return dto;
     }
+
     @Transactional(readOnly = true)
     public WorkoutResponseDto getWorkoutByUserAndDate(Long userId, LocalDate date) {
         WorkoutRecord record = workoutRecordRepository
@@ -76,7 +76,6 @@ public class WorkoutService {
         dto.setUserId(userId);
         dto.setDate(record.getWorkoutDate());
 
-        // Running
         dto.setRunning(record.getRunningRecords().stream().map(r -> {
             WorkoutRequestDto.RunningDto d = new WorkoutRequestDto.RunningDto();
             d.setRunningName(r.getRunningName());
@@ -85,7 +84,6 @@ public class WorkoutService {
             return d;
         }).toList());
 
-        // NonWeight
         dto.setNonWeight(record.getNonWeightRecords().stream().map(n -> {
             WorkoutRequestDto.NonWeightDto d = new WorkoutRequestDto.NonWeightDto();
             d.setNonWeightName(n.getNonWeightName());
@@ -94,7 +92,6 @@ public class WorkoutService {
             return d;
         }).toList());
 
-        // Weight
         dto.setWeight(record.getWeightRecords().stream().map(w -> {
             WorkoutRequestDto.WeightDto d = new WorkoutRequestDto.WeightDto();
             d.setWeightName(w.getWeightName());
@@ -112,7 +109,6 @@ public class WorkoutService {
         WorkoutRecord record = workoutRecordRepository
                 .findByUserIdAndWorkoutDate(userId, date)
                 .orElseThrow(() -> new IllegalArgumentException("운동 기록이 존재하지 않습니다."));
-
         workoutRecordRepository.delete(record);
     }
 }

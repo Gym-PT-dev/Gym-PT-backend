@@ -21,7 +21,7 @@ public class DietLog {
 
     @ManyToOne
     @JoinColumn(name = "user_id")
-    private User user;
+    private Users user;
 
     private LocalDate date;
 

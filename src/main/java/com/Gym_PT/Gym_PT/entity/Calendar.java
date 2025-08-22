@@ -22,7 +22,7 @@ public class Calendar {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Users user;
 
     private LocalDate date;
 

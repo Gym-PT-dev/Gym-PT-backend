@@ -22,7 +22,7 @@ public class WorkoutRecord {
 
     @ManyToOne
     @JoinColumn(name = "user_id")
-    private User user;
+    private Users user;
 
     @OneToMany(mappedBy = "workoutRecord", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RunningRecord> runningRecords = new ArrayList<>();
