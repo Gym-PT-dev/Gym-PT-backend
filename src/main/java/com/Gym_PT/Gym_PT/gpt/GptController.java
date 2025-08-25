@@ -20,10 +20,10 @@ public class GptController {
 
     @GetMapping("/routine/{userId}")
     public ResponseEntity<String> getRoutine(@PathVariable("userId") Long userId) {
-        Users user = usersService.getUser(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        // Users가 없으면 UsersService#getById에서 예외 발생
+        Users user = usersService.getById(userId);
 
-        // 엔티티로 직접 조회
+        // 프로필 엔티티 조회 (없으면 내부에서 예외)
         UserProfile profile = userProfileService.getEntityByUserIdOrThrow(userId);
 
         String result = gptRoutineService.generateRoutine(user, profile);
@@ -32,11 +32,10 @@ public class GptController {
 
     @GetMapping("/diet/{userId}")
     public ResponseEntity<String> getDiet(@PathVariable Long userId) {
-        // Users 존재 확인
-        usersService.getUser(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        // 존재 확인 (없으면 예외)
+        usersService.getById(userId);
 
-        // 엔티티로 직접 조회
+        // 프로필 엔티티 조회 (없으면 내부에서 예외)
         UserProfile profile = userProfileService.getEntityByUserIdOrThrow(userId);
 
         String result = gptDietService.generateDiet(profile);

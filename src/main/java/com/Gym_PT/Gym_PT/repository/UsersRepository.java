@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UsersRepository extends JpaRepository<Users, Long> {
     Optional<Users> findByGoogleSub(String googleSub);
     Optional<Users> findByEmail(String email);
+    boolean existsByGoogleSub(String googleSub);
+    boolean existsByEmail(String email);
 }
