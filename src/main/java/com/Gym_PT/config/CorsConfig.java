@@ -1,4 +1,4 @@
-package com.Gym_PT.Gym_PT.config;
+package com.Gym_PT.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

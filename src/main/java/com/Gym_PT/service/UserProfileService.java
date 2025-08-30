@@ -24,7 +24,7 @@ public class UserProfileService {
         Users user = usersRepo.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
 
-        UserProfile profile = profileRepo.findByUserId(userId)
+        UserProfile profile = profileRepo.findByUser_Id(userId)
                 .orElseGet(() -> UserProfile.builder().user(user).build());
 
         profile.setAge(payload.age());
@@ -43,7 +43,7 @@ public class UserProfileService {
 
     @Transactional(readOnly = true)
     public Optional<UserProfileDto> getByUserId(Long userId) {
-        return profileRepo.findByUserId(userId).map(this::toDto);
+        return profileRepo.findByUser_Id(userId).map(this::toDto);
     }
 
     private UserProfileDto toDto(UserProfile p) {
@@ -65,7 +65,7 @@ public class UserProfileService {
     /** GPT 등 내부 서비스에서 엔티티 필요 시 사용 */
     @Transactional(readOnly = true)
     public UserProfile getEntityByUserIdOrThrow(Long userId) {
-        return profileRepo.findByUserId(userId)
+        return profileRepo.findByUser_Id(userId)
                 .orElseThrow(() -> new NoSuchElementException("UserProfile not found for userId: " + userId));
     }
 }

@@ -1,10 +1,10 @@
 // com.Gym_PT.Gym_PT.controller.AuthController.java
-package com.Gym_PT.Gym_PT.controller;
+package com.Gym_PT.controller;
 
-import com.Gym_PT.Gym_PT.auth.GoogleTokenVerifier;
-import com.Gym_PT.Gym_PT.auth.JwtService;
-import com.Gym_PT.Gym_PT.entity.Users;
-import com.Gym_PT.Gym_PT.service.UsersService;
+import com.Gym_PT.auth.GoogleTokenVerifier;
+import com.Gym_PT.auth.JwtService;
+import com.Gym_PT.entity.Users;
+import com.Gym_PT.service.UsersService;
 import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-package com.Gym_PT.Gym_PT.auth;
+package com.Gym_PT.auth;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.JWKSource;

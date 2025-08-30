@@ -1,4 +1,4 @@
-package com.Gym_PT.Gym_PT.auth;
+package com.Gym_PT.auth;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
