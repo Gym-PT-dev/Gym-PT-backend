@@ -1,3 +1,4 @@
+// com.Gym_PT.Gym_PT.controller.AuthController.java
 package com.Gym_PT.Gym_PT.controller;
 
 import com.Gym_PT.Gym_PT.auth.GoogleTokenVerifier;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -23,43 +25,46 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
         String idToken = body.get("idToken");
-
-        // ✅ 클라이언트에서 받은 원본 idToken 로그
-        System.out.println("📩 received idToken from client: " + idToken);
-
-        if (idToken == null || idToken.isBlank())
+        if (idToken == null || idToken.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "idToken required"));
+        }
 
         try {
-            // ✅ 토큰 검증 (aud/iss/exp 포함되어야 안전)
+            // 1) 토큰 검증 및 클레임 추출
             JWTClaimsSet c = verifier.verify(idToken);
-            System.out.println("✅ verified Google token claims: " + c.toJSONObject());
-
-            String sub = c.getSubject();
-            String email = (String) c.getClaim("email");
-            String name = (String) c.getClaim("name");
-            String picture = (String) c.getClaim("picture");
+            String sub           = c.getSubject();
+            String email         = (String) c.getClaim("email");
+            String name          = (String) c.getClaim("name");
+            String picture       = (String) c.getClaim("picture");
             Boolean emailVerified = (Boolean) c.getClaim("email_verified");
 
-            // ✅ upsert 로그
-            System.out.println("👤 upserting user (sub=" + sub + ", email=" + email + ")");
-
+            // 2) 사용자 upsert
             Users u = usersService.upsertFromGoogle(sub, email, name, picture, emailVerified);
 
-            String access = jwtService.createAccess(u.getId().toString());
-            String refresh = jwtService.createRefresh(u.getId().toString()); // 추후 회전/쿠키 저장 확장 가능
+            // 3) 토큰 발급
+            String access  = jwtService.createAccess(u.getId().toString());
+            String refresh = jwtService.createRefresh(u.getId().toString());
 
-            // ✅ 발급 토큰 로그 (access는 길 수 있으니 앞부분만 출력)
-            System.out.println("🎫 issued tokens: access=" +
-                    (access != null ? access.substring(0, Math.min(20, access.length())) + "..." : "null")
-                    + ", refresh=" +
-                    (refresh != null ? refresh.substring(0, Math.min(20, refresh.length())) + "..." : "null"));
+            // 4) 프론트로 보낼 user 객체(엔티티 전체 중 노출 가능한 필드)
+            Map<String, Object> userDto = new LinkedHashMap<>();
+            userDto.put("id",            u.getId());
+            userDto.put("googleSub",     u.getGoogleSub());
+            userDto.put("email",         u.getEmail());
+            userDto.put("name",          u.getName());
+            userDto.put("picture",       u.getPicture());
+            userDto.put("emailVerified", u.getEmailVerified());
+            userDto.put("createdAt",     u.getCreatedAt());
+            userDto.put("updatedAt",     u.getUpdatedAt());
 
-            return ResponseEntity.ok(Map.of(
-                    "data", Map.of("access", access, "refresh", refresh, "expiresIn", 3600)
-            ));
+            // 5) 통일된 응답 형태
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("accessToken",  access);
+            resp.put("refreshToken", refresh);
+            resp.put("user",         userDto);
+
+            return ResponseEntity.ok(resp);
+
         } catch (IllegalArgumentException e) {
-            System.out.println("⛔ invalid idToken: " + e.getMessage());
             return ResponseEntity.status(401).body(Map.of("error", "Invalid idToken"));
         } catch (Exception e) {
             e.printStackTrace();
@@ -67,4 +72,3 @@ public class AuthController {
         }
     }
 }
-
