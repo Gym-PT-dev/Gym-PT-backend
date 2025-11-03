@@ -5,7 +5,7 @@ name: Deploy Spring Boot to AWS EC2
 on:
   push:
     branches:
-      - backend # (본인이 사용하시는 메인 브랜치 이름으로 변경: main, master 등)
+      - back # (본인이 사용하시는 메인 브랜치 이름으로 변경: main, master 등)
 
 # 어떤 작업을 실행할 것인가
 jobs:
