@@ -1,11 +1,11 @@
 # 워크플로우의 이름
 name: Deploy Spring Boot to AWS EC2
 
-# 언제 실행할 것인가: 'main' 브랜치에 'push'가 될 때
+# 언제 실행할 것인가: 'back' 브랜치에 'push'가 될 때
 on:
   push:
     branches:
-      - back # (본인이 사용하시는 메인 브랜치 이름으로 변경: main, master 등)
+      - back # (이전에 'back' 브랜치로 푸시하셨으니 'back'으로 수정했습니다)
 
 # 어떤 작업을 실행할 것인가
 jobs:
@@ -25,6 +25,9 @@ jobs:
       - name: Setup Gradle # 3. Gradle 설정
         uses: gradle/gradle-build-action@v2
 
+      - name: Add execute permission to gradlew # (추가) gradlew 실행 권한 부여
+        run: chmod +x ./gradlew
+
       - name: Build with Gradle # 4. Gradle 빌드 (EC2에서 하던 것과 같음)
         run: ./gradlew clean bootJar --no-daemon
 
@@ -35,7 +38,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }} # 1단계에서 등록한 Secret
           username: ${{ secrets.EC2_USER }} # 1단계에서 등록한 Secret
           key: ${{ secrets.EC2_SSH_KEY }} # 1단계에서 등록한 Secret
-          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar" # 빌드된 .jar 파일 경로
+          source: "build/libs/Gym-PT-Backend-0.0.1-SNAPSHOT.jar"
           target: "/home/ec2-user/" # EC2 서버의 홈 디렉토리에 복사
 
       # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행
@@ -47,17 +50,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # 1. 기존에 실행 중인 서버가 있다면 종료
-            # .jar 파일 이름을 정확하게 지정해야 합니다.
-            PID=$(ps -ef | grep 'java -jar build/libs/Gym_PT-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
+            PID=$(ps -ef | grep 'java -jar build/libs/Gym-PT-Backend-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
             if [ -n "$PID" ]; then
               kill -9 $PID
               echo "Killed old process $PID"
             fi
             
             # 2. (파일 이동) 복사된 새 .jar 파일을 build/libs 폴더로 이동 (덮어쓰기)
-            # EC2 서버에는 build/libs 폴더가 없을 수 있으니, 폴더를 만들고 파일을 이동시킵니다.
             mkdir -p /home/ec2-user/Gym-PT-Backend/build/libs
-            mv /home/ec2-user/Gym_PT-0.0.1-SNAPSHOT.jar /home/ec2-user/Gym-PT-Backend/build/libs/Gym_PT-0.0.1-SNAPSHOT.jar
+            mv /home/ec2-user/Gym-PT-Backend-0.0.1-SNAPSHOT.jar /home/ec2-user/Gym-PT-Backend/build/libs/Gym-PT-Backend-0.0.1-SNAPSHOT.jar
             
             # 3. 13개의 환경 변수를 모두 export (Secrets에서 값을 가져옴)
             export SPRING_DATASOURCE_URL='${{ secrets.SPRING_DATASOURCE_URL }}'
@@ -76,5 +77,5 @@ jobs:
 
             # 4. EC2의 프로젝트 폴더로 이동해서 새 서버 실행
             cd /home/ec2-user/Gym-PT-Backend
-            nohup java -jar build/libs/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
+            nohup java -jar build/libs/Gym-PT-Backend-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
             echo "Server restarted successfully"
