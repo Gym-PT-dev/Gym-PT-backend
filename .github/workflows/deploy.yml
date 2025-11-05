@@ -37,11 +37,10 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # (확인된 "진짜" 파일 이름)
-          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar"
+          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar" # "진짜" 파일 이름
           target: "/home/ec2-user/"
 
-      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★로직 수정★)
+      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★디버깅 추가★)
       - name: Restart Server on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -56,18 +55,23 @@ jobs:
               echo "Killed old process $PID"
             fi
             
-            # 2. (★추가★) 오래된 로그 파일 삭제 (로그를 깨끗하게 보기 위함)
+            # 2. 오래된 로그 파일 삭제
             rm -f /home/ec2-user/app.log
             echo "Removed old app.log"
 
-            # 3. 13개의 환경 변수를 모두 export (Secrets에서 값을 가져옴)
+            # 3. (★디버깅 1★) .jar 파일이 EC2에 잘 복사되었는지 확인
+            echo "--- Listing files in /home/ec2-user/ ---"
+            ls -l /home/ec2-user/
+            echo "-------------------------------------------"
+
+            # 4. 13개의 환경 변수를 모두 export
             export SPRING_DATASOURCE_URL='${{ secrets.SPRING_DATASOURCE_URL }}'
             export SPRING_DATASOURCE_USERNAME='${{ secrets.SPRING_DATASOURCE_USERNAME }}'
             export SPRING_DATASOURCE_PASSWORD='${{ secrets.SPRING_DATASOURCE_PASSWORD }}'
             export SPRING_JPA_HIBERNATE_DDL_AUTO='${{ secrets.SPRING_JPA_HIBERNATE_DDL_AUTO }}'
             export SPRING_JACKSON_TIME_ZONE='${{ secrets.SPRING_JACKSON_TIME_ZONE }}'
             export SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE='${{ secrets.SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE }}'
-            export SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE='${{ secrets.SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE }}'
+            export SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE='${{ secrets.SPRING_SERVLET_MAX_REQUEST_SIZE }}'
             export GPT_API_KEY='${{ secrets.GPT_API_KEY }}'
             export CLOUD_AWS_REGION_STATIC='${{ secrets.CLOUD_AWS_REGION_STATIC }}'
             export CLOUD_AWS_S3_BUCKET='${{ secrets.CLOUD_AWS_S3_BUCKET }}'
@@ -75,6 +79,15 @@ jobs:
             export CLOUD_AWS_CREDENTIALS_SECRET_KEY='${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}'
             export CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN='${{ secrets.CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN }}'
 
-            # 4. 새 서버 실행
+            # 5. 새 서버 실행
             nohup java -jar /home/ec2-user/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
-            echo "Server restarted successfully"
+            echo "Server restart command issued"
+
+            # 6. (★디버깅 2★) 서버가 켜질 때까지 5초간 기다림
+            echo "Waiting 5 seconds for server to start..."
+            sleep 5
+
+            # 7. (★디버깅 3★) "새로운" app.log 파일의 내용을 GitHub Actions 로그에 출력
+            echo "--- Displaying new app.log (max 30 lines) ---"
+            tail -n 30 /home/ec2-user/app.log
+            echo "------------------------------------------------"
