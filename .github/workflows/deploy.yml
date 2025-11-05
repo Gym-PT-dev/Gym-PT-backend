@@ -30,10 +30,6 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean bootJar --no-daemon
 
-      # (선택) 이 디버깅 단계는 이제 지우셔도 됩니다.
-      - name: List files in build/libs
-        run: ls -l build/libs
-
       # 5. 빌드가 완료된 .jar 파일을 EC2로 전송
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.4
@@ -41,11 +37,12 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # (★수정 1/4) 로그에서 찾은 "진짜" 파일 이름으로 바꾸세요
-          source: "build/libs/[★여기에-진짜-jar파일-이름.jar★]"
+          # (★수정 1/4) 확인된 "진짜" 파일 이름
+          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar"
+          # (★수정 2/4) Gym-PT-Backend 폴더가 아닌, 홈 디렉토리에 바로 복사
           target: "/home/ec2-user/"
 
-      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행
+      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★로직 단순화★)
       - name: Restart Server on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -54,20 +51,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # 1. 기존에 실행 중인 서버가 있다면 종료
-            # (★수정 2/4) 로그에서 찾은 "진짜" 파일 이름으로 바꾸세요
-            PID=$(ps -ef | grep 'java -jar build/libs/[★여기에-진짜-jar파일-이름.jar★]' | grep -v grep | awk '{print $2}')
+            # (★수정 3/4) "진짜" 파일 이름으로 실행 중인 프로세스를 찾음
+            PID=$(ps -ef | grep 'java -jar Gym_PT-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
             if [ -n "$PID" ]; then
               kill -9 $PID
               echo "Killed old process $PID"
             fi
             
-            # 2. (파일 이동) 복사된 새 .jar 파일을 build/libs 폴더로 이동 (덮어쓰기)
-            # (EC2의 Gym-PT-Backend 폴더는 수동 배포 때 만든 폴더입니다)
-            mkdir -p /home/ec2-user/Gym-PT-Backend/build/libs
-            # (★수정 3/4) 로그에서 찾은 "진짜" 파일 이름으로 바꾸세요
-            mv /home/ec2-user/[★여기에-진짜-jar파일-이름.jar★] /home/ec2-user/Gym-PT-Backend/build/libs/[★여기에-진짜-jar파일-이름.jar★]
-            
-            # 3. 13개의 환경 변수를 모두 export (Secrets에서 값을 가져옴)
+            # 2. 13개의 환경 변수를 모두 export (Secrets에서 값을 가져옴)
             export SPRING_DATASOURCE_URL='${{ secrets.SPRING_DATASOURCE_URL }}'
             export SPRING_DATASOURCE_USERNAME='${{ secrets.SPRING_DATASOURCE_USERNAME }}'
             export SPRING_DATASOURCE_PASSWORD='${{ secrets.SPRING_DATASOURCE_PASSWORD }}'
@@ -82,8 +73,7 @@ jobs:
             export CLOUD_AWS_CREDENTIALS_SECRET_KEY='${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}'
             export CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN='${{ secrets.CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN }}'
 
-            # 4. EC2의 프로젝트 폴더로 이동해서 새 서버 실행
-            cd /home/ec2-user/Gym-PT-Backend
-            # (★수정 4/4) 로그에서 찾은 "진짜" 파일 이름으로 바꾸세요
-            nohup java -jar build/libs/[★여기에-진짜-jar파일-이름.jar★] > /home/ec2-user/app.log 2>&1 &
+            # 3. (★수정 4/4) 
+            # /home/ec2-user/ 폴더에서 바로 .jar 파일을 실행 (cd, mv 명령어 모두 삭제)
+            nohup java -jar /home/ec2-user/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
             echo "Server restarted successfully"
