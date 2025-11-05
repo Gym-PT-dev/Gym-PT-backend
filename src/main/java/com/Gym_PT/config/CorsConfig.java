@@ -1,56 +1,42 @@
 package com.Gym_PT.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
+import org.springframework.context.annotation.Primary;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 @Configuration
 public class CorsConfig {
 
-    // 예) application.properties: app.cors.allowed-origins=http://localhost:8081
-    @Value("${app.cors.allowed-origins:http://localhost:8081}")
+    // 예: application.properties
+    // app.cors.allowed-origins=http://localhost:8081,http://localhost:19006,http://localhost:5173
+    @Value("${app.cors.allowed-origins:http://localhost:8081,http://localhost:19006}")
     private String allowedOrigins;
 
     @Bean
+    @Primary // ✅ 충돌 방지: 우리가 만든 CorsConfigurationSource를 우선 사용
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration c = new CorsConfiguration();
 
-        // ✅ 정확한 오리진 등록 (패턴 X)
+        // ✅ 허용 오리진(패턴) 등록
         for (String origin : allowedOrigins.split(",")) {
             String o = origin.trim();
-            if (!o.isEmpty()) c.addAllowedOrigin(o);
+            if (!o.isEmpty()) c.addAllowedOriginPattern(o);
         }
 
-        // ✅ 허용 헤더/메서드
+        // ✅ 허용 헤더/메서드/쿠키
         c.addAllowedHeader("*");
         c.addAllowedMethod("*");
+        c.setAllowCredentials(true);
 
-        // ✅ 현재 구조(본문으로 토큰 주고받음): 쿠키 미사용 → false
-        c.setAllowCredentials(false);
-
-        // (필요 시) 노출 헤더
+        // (선택) 노출 헤더가 필요하면 추가 (예: Authorization)
         // c.addExposedHeader("Authorization");
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", c);
-
-        // 디버깅용 (배포 로그에서 값 확인)
-        System.out.println("[CORS] allowedOrigins = " + allowedOrigins);
-
-        return source;
-    }
-
-    // ✅ 필터 순서 최우선으로 등록 (프리플라이트/본요청에 헤더 강제 부착)
-    @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilterRegistration(CorsConfigurationSource source) {
-        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        return bean;
+        UrlBasedCorsConfigurationSource s = new UrlBasedCorsConfigurationSource();
+        s.registerCorsConfiguration("/**", c);
+        return s;
     }
 }
