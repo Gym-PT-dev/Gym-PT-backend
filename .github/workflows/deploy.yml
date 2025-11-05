@@ -31,16 +31,18 @@ jobs:
         run: ./gradlew clean bootJar --no-daemon
 
       # 5. 빌드가 완료된 .jar 파일을 EC2로 전송
+      #    source의 'build/libs/...' 경로를
+      #    target의 '/home/ec2-user/' 폴더 안에 그대로 생성합니다.
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar" # "진짜" 파일 이름
+          source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar"
           target: "/home/ec2-user/"
 
-      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★디버깅 추가★)
+      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★경로 수정★)
       - name: Restart Server on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -49,7 +51,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # 1. 기존에 실행 중인 서버가 있다면 종료
-            PID=$(ps -ef | grep 'java -jar Gym_PT-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
+            # (★수정 1/2) "진짜" 전체 경로로 실행 중인 프로세스를 찾음
+            PID=$(ps -ef | grep 'java -jar /home/ec2-user/build/libs/Gym_PT-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
             if [ -n "$PID" ]; then
               kill -9 $PID
               echo "Killed old process $PID"
@@ -59,12 +62,7 @@ jobs:
             rm -f /home/ec2-user/app.log
             echo "Removed old app.log"
 
-            # 3. (★디버깅 1★) .jar 파일이 EC2에 잘 복사되었는지 확인
-            echo "--- Listing files in /home/ec2-user/ ---"
-            ls -l /home/ec2-user/
-            echo "-------------------------------------------"
-
-            # 4. 13개의 환경 변수를 모두 export
+            # 3. 13개의 환경 변수를 모두 export
             export SPRING_DATASOURCE_URL='${{ secrets.SPRING_DATASOURCE_URL }}'
             export SPRING_DATASOURCE_USERNAME='${{ secrets.SPRING_DATASOURCE_USERNAME }}'
             export SPRING_DATASOURCE_PASSWORD='${{ secrets.SPRING_DATASOURCE_PASSWORD }}'
@@ -79,15 +77,16 @@ jobs:
             export CLOUD_AWS_CREDENTIALS_SECRET_KEY='${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}'
             export CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN='${{ secrets.CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN }}'
 
-            # 5. 새 서버 실행
-            nohup java -jar /home/ec2-user/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
+            # 4. 새 서버 실행
+            # (★수정 2/2) "진짜" 전체 경로로 .jar 파일을 실행
+            nohup java -jar /home/ec2-user/build/libs/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
             echo "Server restart command issued"
 
-            # 6. (★디버깅 2★) 서버가 켜질 때까지 5초간 기다림
+            # 5. (디버깅) 서버가 켜질 때까지 5초간 기다림
             echo "Waiting 5 seconds for server to start..."
             sleep 5
 
-            # 7. (★디버깅 3★) "새로운" app.log 파일의 내용을 GitHub Actions 로그에 출력
+            # 6. (디버깅) "새로운" app.log 파일의 내용을 GitHub Actions 로그에 출력
             echo "--- Displaying new app.log (max 30 lines) ---"
             tail -n 30 /home/ec2-user/app.log
             echo "------------------------------------------------"
