@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -17,12 +18,6 @@ public class WorkoutController {
 
     private final WorkoutService workoutService;
 
-    /**
-     * 특정 사용자(userId)의 해당 날짜(WorkoutRequestDto.date)에 대한
-     * 운동 기록을 저장하거나 갱신하는 API
-     *
-     * 예: POST /users/1/workout
-     */
     @PostMapping("/{userId}/workout")
     public ResponseEntity<WorkoutRequestDto> saveWorkout(
             @PathVariable Long userId,
@@ -32,22 +27,19 @@ public class WorkoutController {
         return ResponseEntity.ok(savedWorkout);
     }
 
-
+    // 🔹 하루에 여러 WorkoutRecord가 있을 수 있으므로 List<WorkoutResponseDto> 반환
     @GetMapping("/{userId}/workout")
-    public ResponseEntity<WorkoutResponseDto> getWorkoutByDate(
+    public ResponseEntity<List<WorkoutResponseDto>> getWorkoutByDate(
             @PathVariable Long userId,
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        WorkoutResponseDto result = workoutService.getWorkoutByUserAndDate(userId, date);
+        List<WorkoutResponseDto> result =
+                workoutService.getWorkoutListByUserAndDate(userId, date);
 
-        if (result == null) {
-            // 해당 날짜에 운동 기록이 없는 경우
-            return ResponseEntity.notFound().build();
-        }
-
+        // 비어 있으면 [] 그대로 200으로 내려보내도 되고,
+        // 필요하면 notFound() 로 바꿔도 됨
         return ResponseEntity.ok(result);
     }
-
 
     @DeleteMapping("/{userId}/workout")
     public ResponseEntity<Void> deleteWorkoutByDate(
@@ -55,6 +47,6 @@ public class WorkoutController {
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
         workoutService.deleteWorkoutByUserAndDate(userId, date);
-        return ResponseEntity.noContent().build(); // 204 응답
+        return ResponseEntity.noContent().build();
     }
 }

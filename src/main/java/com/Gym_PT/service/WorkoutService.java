@@ -3,13 +3,15 @@ package com.Gym_PT.service;
 import com.Gym_PT.dto.WorkoutRequestDto;
 import com.Gym_PT.dto.WorkoutResponseDto;
 import com.Gym_PT.entity.*;
-import com.Gym_PT.repository.UsersRepository;              // ← 변경
+import com.Gym_PT.repository.UsersRepository;
 import com.Gym_PT.repository.WorkoutRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class WorkoutService {
         workoutRecord.setUser(user);
         workoutRecord.setWorkoutDate(dto.getDate());
 
+        // Running
         if (dto.getRunning() != null) {
             for (WorkoutRequestDto.RunningDto r : dto.getRunning()) {
                 RunningRecord run = new RunningRecord();
@@ -39,6 +42,7 @@ public class WorkoutService {
             }
         }
 
+        // NonWeight
         if (dto.getNonWeight() != null) {
             for (WorkoutRequestDto.NonWeightDto n : dto.getNonWeight()) {
                 NonWeightRecord non = new NonWeightRecord();
@@ -50,6 +54,7 @@ public class WorkoutService {
             }
         }
 
+        // Weight
         if (dto.getWeight() != null) {
             for (WorkoutRequestDto.WeightDto w : dto.getWeight()) {
                 WeightRecord weight = new WeightRecord();
@@ -66,49 +71,69 @@ public class WorkoutService {
         return dto;
     }
 
+    /**
+     * 🔹 같은 날짜에 WorkoutRecord가 여러 개 있을 수 있다고 가정하고
+     *    → List<WorkoutResponseDto> 로 전부 반환
+     */
     @Transactional(readOnly = true)
-    public WorkoutResponseDto getWorkoutByUserAndDate(Long userId, LocalDate date) {
-        WorkoutRecord record = workoutRecordRepository
-                .findByUserIdAndWorkoutDate(userId, date)
-                .orElseThrow(() -> new IllegalArgumentException("운동 기록이 없습니다."));
+    public List<WorkoutResponseDto> getWorkoutListByUserAndDate(Long userId, LocalDate date) {
 
-        WorkoutResponseDto dto = new WorkoutResponseDto();
-        dto.setUserId(userId);
-        dto.setDate(record.getWorkoutDate());
+        List<WorkoutRecord> records =
+                workoutRecordRepository.findAllByUser_IdAndWorkoutDate(userId, date);
 
-        dto.setRunning(record.getRunningRecords().stream().map(r -> {
-            WorkoutRequestDto.RunningDto d = new WorkoutRequestDto.RunningDto();
-            d.setRunningName(r.getRunningName());
-            d.setSpeed(r.getSpeed());
-            d.setDuration(r.getDuration());
-            return d;
-        }).toList());
+        List<WorkoutResponseDto> result = new ArrayList<>();
 
-        dto.setNonWeight(record.getNonWeightRecords().stream().map(n -> {
-            WorkoutRequestDto.NonWeightDto d = new WorkoutRequestDto.NonWeightDto();
-            d.setNonWeightName(n.getNonWeightName());
-            d.setNonWeightSets(n.getNonWeightSets());
-            d.setNonWeightReps(n.getNonWeightReps());
-            return d;
-        }).toList());
+        for (WorkoutRecord record : records) {
+            WorkoutResponseDto dto = new WorkoutResponseDto();
+            dto.setUserId(userId);
+            dto.setDate(record.getWorkoutDate());
 
-        dto.setWeight(record.getWeightRecords().stream().map(w -> {
-            WorkoutRequestDto.WeightDto d = new WorkoutRequestDto.WeightDto();
-            d.setWeightName(w.getWeightName());
-            d.setWeightSets(w.getWeightSets());
-            d.setWeightReps(w.getWeightReps());
-            d.setWeight(w.getWeight());
-            return d;
-        }).toList());
+            // Running 매핑
+            dto.setRunning(record.getRunningRecords().stream().map(r -> {
+                WorkoutRequestDto.RunningDto d = new WorkoutRequestDto.RunningDto();
+                d.setRunningName(r.getRunningName());
+                d.setSpeed(r.getSpeed());
+                d.setDuration(r.getDuration());
+                return d;
+            }).toList());
 
-        return dto;
+            // NonWeight 매핑
+            dto.setNonWeight(record.getNonWeightRecords().stream().map(n -> {
+                WorkoutRequestDto.NonWeightDto d = new WorkoutRequestDto.NonWeightDto();
+                d.setNonWeightName(n.getNonWeightName());
+                d.setNonWeightSets(n.getNonWeightSets());
+                d.setNonWeightReps(n.getNonWeightReps());
+                return d;
+            }).toList());
+
+            // Weight 매핑
+            dto.setWeight(record.getWeightRecords().stream().map(w -> {
+                WorkoutRequestDto.WeightDto d = new WorkoutRequestDto.WeightDto();
+                d.setWeightName(w.getWeightName());
+                d.setWeightSets(w.getWeightSets());
+                d.setWeightReps(w.getWeightReps());
+                d.setWeight(w.getWeight());
+                return d;
+            }).toList());
+
+            result.add(dto);
+        }
+
+        return result;
     }
 
+    /**
+     * 🔹 해당 날짜의 WorkoutRecord들을 전부 삭제
+     */
     @Transactional
     public void deleteWorkoutByUserAndDate(Long userId, LocalDate date) {
-        WorkoutRecord record = workoutRecordRepository
-                .findByUserIdAndWorkoutDate(userId, date)
-                .orElseThrow(() -> new IllegalArgumentException("운동 기록이 존재하지 않습니다."));
-        workoutRecordRepository.delete(record);
+        List<WorkoutRecord> records =
+                workoutRecordRepository.findAllByUser_IdAndWorkoutDate(userId, date);
+
+        if (records.isEmpty()) {
+            throw new IllegalArgumentException("운동 기록이 존재하지 않습니다.");
+        }
+
+        workoutRecordRepository.deleteAll(records);
     }
 }
