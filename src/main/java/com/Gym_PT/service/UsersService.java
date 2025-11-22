@@ -45,4 +45,18 @@ public class UsersService {
     public Users getById(Long id) {
         return usersRepository.findById(id).orElseThrow();
     }
+
+    // 🔥 닉네임(이름) 수정 메서드 추가
+    @Transactional
+    public Users updateName(Long id, String newName) {
+        Users user = usersRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+
+        // 원래 Google 이름도 같이 바꾸고 싶으면 둘 다 변경
+        user.setName(newName);
+        // 화면에서 쓰는 닉네임은 displayName으로 사용
+        user.setDisplayName(newName);
+
+        return user;
+    }
 }
