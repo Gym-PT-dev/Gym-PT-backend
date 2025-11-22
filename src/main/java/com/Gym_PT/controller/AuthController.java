@@ -32,10 +32,10 @@ public class AuthController {
         try {
             // 1) 토큰 검증 및 클레임 추출
             JWTClaimsSet c = verifier.verify(idToken);
-            String sub           = c.getSubject();
-            String email         = (String) c.getClaim("email");
-            String name          = (String) c.getClaim("name");
-            String picture       = (String) c.getClaim("picture");
+            String sub            = c.getSubject();
+            String email          = (String) c.getClaim("email");
+            String name           = (String) c.getClaim("name");
+            String picture        = (String) c.getClaim("picture");
             Boolean emailVerified = (Boolean) c.getClaim("email_verified");
 
             // 2) 사용자 upsert
@@ -50,7 +50,8 @@ public class AuthController {
             userDto.put("id",            u.getId());
             userDto.put("googleSub",     u.getGoogleSub());
             userDto.put("email",         u.getEmail());
-            userDto.put("name",          u.getName());
+            userDto.put("name",          u.getName());          // 구글에서 온 원본 이름
+            userDto.put("displayName",   u.getDisplayName());   // ⭐ 앱에서 쓰는 표시 이름
             userDto.put("picture",       u.getPicture());
             userDto.put("emailVerified", u.getEmailVerified());
             userDto.put("createdAt",     u.getCreatedAt());
