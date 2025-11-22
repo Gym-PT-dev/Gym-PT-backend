@@ -28,4 +28,24 @@ public class UsersController {
                 "emailVerified", u.getEmailVerified()
         ));
     }
+
+    @PatchMapping("/me")
+    public ResponseEntity<?> updateMe(
+            Authentication auth,
+            @RequestBody Map<String, String> body
+    ) {
+        Long userId = Long.valueOf(auth.getName());
+        String newName = body.get("name");   // 프론트에서 { "name": "새이름" } 보내도록
+
+        Users u = usersService.updateName(userId, newName);
+
+        // 응답 형식은 GET /me랑 맞춰주기
+        return ResponseEntity.ok(Map.of(
+                "id", u.getId(),
+                "email", u.getEmail(),
+                "name", u.getName(),
+                "picture", u.getPicture(),
+                "emailVerified", u.getEmailVerified()
+        ));
+    }
 }
