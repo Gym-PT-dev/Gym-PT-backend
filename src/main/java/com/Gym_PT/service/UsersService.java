@@ -48,7 +48,7 @@ public class UsersService {
 
     // 🔥 닉네임(이름) 수정 메서드 추가
     @Transactional
-    public Users updateName(Long id, String newName) {
+    public Users updateDisplayName(Long id, String newName) {
         Users user = usersRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
 
