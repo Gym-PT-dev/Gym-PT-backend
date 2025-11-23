@@ -25,7 +25,7 @@ public class GoogleTokenVerifier {
     private final Set<String> allowedClientIds; // Web + Android 모두
     private final ConfigurableJWTProcessor<SecurityContext> processor;
 
-    public GoogleTokenVerifier(@Value("${google.client.ids}") String clientIdsCsv) throws Exception {
+    public GoogleTokenVerifier(@Value("${google.client.id}") String clientIdsCsv) throws Exception {
         // 콤마로 분리하여 공백 제거
         this.allowedClientIds = Arrays.stream(clientIdsCsv.split(","))
                 .map(String::trim)
