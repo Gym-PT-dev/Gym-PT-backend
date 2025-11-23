@@ -37,8 +37,8 @@ jobs:
           
           # 4. 기타 설정 (Jackson, File Upload)
           echo "spring.jackson.time-zone=${{ secrets.SPRING_JACKSON_TIME_ZONE }}" >> application.properties
-          echo "spring.servlet.multipart.max-file-size=${{ secrets.SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE }}" >> application.properties
-          echo "spring.servlet.multipart.max-request-size=${{ secrets.SPRING_SERVLET_MAX_REQUEST_SIZE }}" >> application.properties
+          echo "spring.servlet.multipart.max-file-size=10MB" >> application.properties
+          echo "spring.servlet.multipart.max-request-size=10MB" >> application.properties
           
           # 5. FatSecret & OpenAI & AWS (소문자.점 표기법 사용 권장)
           echo "gpt.api.key=${{ secrets.GPT_API_KEY }}" >> application.properties
