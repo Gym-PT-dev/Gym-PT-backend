@@ -58,6 +58,26 @@ jobs:
           # OpenAI (추가된 것)
           echo "openai.api.key=${{ secrets.OPENAI_API_KEY }}" >> application.properties
           echo "openai.api.url=${{ secrets.OPENAI_API_URL }}" >> application.properties
+          
+          # [추가] Google OAuth
+          echo "google.client.id=${{ secrets.GOOGLE_CLIENT_ID }}" >> application.properties
+          echo "google.client.secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> application.properties
+
+          # [추가] JWT 설정 (만료 시간은 고정값이므로 직접 입력)
+          echo "jwt.secret=${{ secrets.JWT_SECRET }}" >> application.properties
+          echo "jwt.access.exp=3600" >> application.properties
+          echo "jwt.refresh.exp=1209600" >> application.properties
+
+          # [추가] CORS 설정 (테스트를 위해 모든 주소 허용 * 추천)
+          echo "app.cors.allowed-origins=*" >> application.properties
+
+          # [추가] 로깅 레벨
+          echo "logging.level.org.springframework.security=DEBUG" >> application.properties
+
+          # [중요] 백엔드 주소 (EC2 IP로 변경!!)
+          # 원래 코드: app.backendBaseUrl=http://172.30.1.4:8080
+          # 수정 코드: 아래 EC2 IP를 사용하세요.
+          echo "app.backendBaseUrl=http://13.236.119.207:8080" >> application.properties
 
         shell: bash
 
