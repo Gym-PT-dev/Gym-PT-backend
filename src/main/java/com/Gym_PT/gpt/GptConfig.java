@@ -6,10 +6,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GptConfig {
 
-    @Value("${gpt.api.key}")
+    @Value("${openai.api.key}")
     private String apiKey;
 
-    public String getApiKey() {
-        return apiKey;
-    }
+    @Value("${openai.api.url}")
+    private String apiUrl;
+
+    public String getApiKey() { return apiKey; }
+    public String getApiUrl() { return apiUrl; }
+
 }

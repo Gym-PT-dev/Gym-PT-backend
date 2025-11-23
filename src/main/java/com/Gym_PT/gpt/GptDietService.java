@@ -1,11 +1,12 @@
 package com.Gym_PT.gpt;
 
-import com.Gym_PT.entity.UserProfile;
+import com.Gym_PT.entity.*;
+import com.Gym_PT.repository.DietRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
-
 import java.util.*;
 
 @Service
@@ -13,143 +14,89 @@ import java.util.*;
 public class GptDietService {
 
     private final GptConfig gptConfig;
+    private final RestTemplate restTemplate;
+    private final DietRecordRepository dietRecordRepository;
 
-    /** 컨트롤러에서 프로필을 넘겨 받도록 변경 */
-    public String generateDiet(UserProfile profile) {
-        int age = profile.getAge() == null ? 0 : profile.getAge();
-        String gender = profile.getGender() == null ? "" : profile.getGender().name(); // "MALE" | "FEMALE"
-        float height = profile.getHeight() == null ? 0f : profile.getHeight();
-        float weight = profile.getWeight() == null ? 0f : profile.getWeight();
-        String goal = profile.getGoal() == null ? "" : profile.getGoal().name();       // "DIET" | "KEEP" | "BULK"
-        return generateDiet(age, gender, height, weight, goal);
+    @Transactional(readOnly = true)
+    public String generateDiet(Long userId, UserProfile profile) {
+        List<DietRecord> recentDiets = dietRecordRepository.findTop7ByUser_IdOrderByDietDateDesc(userId);
+        Collections.reverse(recentDiets);
+        String recentLog = formatDietLogs(recentDiets);
+        return callGptApi(profile, recentLog);
     }
 
-    /** 내부 핵심 호출(필요 시 재사용) */
-    public String generateDiet(int age, String gender, float height, float weight, String goal) {
-
+    private String callGptApi(UserProfile profile, String recentLog) {
+        // ▼▼▼ [프롬프트 강력 수정] ▼▼▼
         String systemPrompt = """
-            너는 한국인 대상의 전문 영양 코치다.
-            아래 규칙을 반드시 지켜서 "JSON만" 출력하라. 불필요한 설명/마크다운/코드블록은 출력 금지.
-
-            [계산 규칙]
-            1) 칼로리(단순화 계수):
-               - 유지: 30 × 체중(kg)
-               - 다이어트: 26 × 체중(kg)
-               - 증량: 34 × 체중(kg)
-               ※ 사용한 계수를 targets.method_note에 명시.
-
-            2) 단백질/지방/탄수화물(체중 기반):
-               - 단백질:
-                 · 다이어트: 2.2 g/kg
-                 · 유지:     1.8 g/kg
-                 · 증량:     1.7 g/kg
-               - 지방: 0.9 g/kg
-               - 탄수화물: 남은 칼로리로 계산
-                   carbs_g = (총칼로리 - (protein_g×4 + fat_g×9)) ÷ 4
-               - 모든 g 수치는 반올림하여 정수로 제시.
-
-            3) 추천 식단(한국식 재료 중심, 3끼+간식 = 총 4끼):
-               - 각 끼니: 음식명, 1회 제공량(g/개수), kcal, 탄/단/지 g
-               - 총합이 목표 칼로리 ±5% 이내
-               - 단백질은 끼니마다 고르게 분배
-               - 실용적 재료 사용
-
-            4) 수분 섭취:
-               - 체중 × 30~35 ml/일 (정수 반올림)
-
-            [출력 형식(JSON만)]
+            너는 전문 영양 코치다. 사용자 정보와 최근 7일 식단을 보고 오늘 식단을 JSON으로 작성하라.
+            
+            [절대 규칙: 4끼 필수 포함]
+            1. **무조건** 'BREAKFAST', 'LUNCH', 'DINNER', 'SNACK' 4가지 끼니를 모두 포함해야 한다. 하나라도 빠지면 안 된다.
+            2. **메뉴 구성**:
+               - **아침(BREAKFAST)**: 간단하지만 든든하게 (예: 샌드위치, 요거트볼, 한식 등)
+               - **점심(LUNCH) & 저녁(DINNER)**: 반드시 '밥/탄수화물 + 메인반찬(단백질) + 채소' 조합으로 **3가지 이상의 음식**을 포함하라.
+               - **간식(SNACK)**: 견과류, 과일, 프로틴바 등 1~2가지.
+            3. 다양성: 최근 먹은 메뉴와 겹치지 않게 추천하라.
+            
+            [출력 구조 준수]
             {
-              "user": { "sex": "남|여", "height_cm": 0, "weight_kg": 0, "goal": "다이어트|유지|증량" },
-              "targets": { "method_note": "", "calories_kcal": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0 },
-              "meal_plan": {
-                "meals_per_day": 4,
-                "meals": [
-                  { "name": "아침", "items": [], "subtotal": {"kcal":0,"carbs_g":0,"protein_g":0,"fat_g":0} },
-                  { "name": "점심", "items": [], "subtotal": {"kcal":0,"carbs_g":0,"protein_g":0,"fat_g":0} },
-                  { "name": "간식", "items": [], "subtotal": {"kcal":0,"carbs_g":0,"protein_g":0,"fat_g":0} },
-                  { "name": "저녁", "items": [], "subtotal": {"kcal":0,"carbs_g":0,"protein_g":0,"fat_g":0} }
-                ],
-                "total": {"kcal":0,"carbs_g":0,"protein_g":0,"fat_g":0}
-              },
-              "hydration": { "recommended_ml_per_day": 0, "note": "체중×30~35 ml 기준" },
-              "tips": ["..."]
+              "meals": [
+                {
+                  "mealType": "BREAKFAST",
+                  "foods": [
+                     { "name": "사과", "amount": "1개", "kcal": 150, "carbs": 30, "protein": 1, "fat": 0 },
+                     { "name": "삶은 계란", "amount": "2개", "kcal": 140, "carbs": 2, "protein": 12, "fat": 10 }
+                  ]
+                },
+                {
+                  "mealType": "LUNCH",
+                  "foods": [ ... ]
+                },
+                {
+                  "mealType": "DINNER",
+                  "foods": [ ... ]
+                },
+                {
+                  "mealType": "SNACK",
+                  "foods": [ ... ]
+                }
+              ]
             }
-
-            [중요]
-            - 반드시 유효한 JSON만 출력.
-            - kcal/탄/단/지는 정수.
+            * mealType은 "BREAKFAST", "LUNCH", "DINNER", "SNACK" 4개가 전부 있어야 한다.
+            * 숫자는 정수(Integer)로.
             """;
 
-        String userJson = String.format(Locale.ROOT, """
-            {
-              "user": {
-                "gender": "%s",
-                "height_cm": %.1f,
-                "weight_kg": %.1f,
-                "goal": "%s",
-                "age": %d
-              }
-            }
-            """,
-                safeUpper(gender), height, weight, safeUpper(goal), age
+        String userPrompt = String.format("목표: %s\n최근식단: %s", profile.getGoal(), recentLog);
+
+        Map<String, Object> requestBody = Map.of(
+                "model", "gpt-4o-mini",
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userPrompt)
+                ),
+                "temperature", 0.6,
+                "response_format", Map.of("type", "json_object")
         );
 
-        RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         headers.setBearerAuth(gptConfig.getApiKey());
 
-        Map<String, Object> systemMsg = Map.of("role", "system", "content", systemPrompt);
-        Map<String, Object> userMsg   = Map.of("role", "user",   "content", userJson);
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "gpt-4o-mini");
-        requestBody.put("messages", List.of(systemMsg, userMsg));
-        requestBody.put("temperature", 0.3);
-        requestBody.put("max_tokens", 2000);
-        requestBody.put("response_format", Map.of("type", "json_object")); // JSON 강제(지원 모델만)
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-        ResponseEntity<Map> response;
-        try {
-            response = restTemplate.postForEntity(
-                    "https://api.openai.com/v1/chat/completions",
-                    entity,
-                    Map.class
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("OpenAI 호출 실패: " + e.getMessage(), e);
-        }
-
-        Map body = response.getBody();
-        if (body == null) throw new IllegalStateException("응답 본문이 비어있습니다.");
-
-        Object choicesObj = body.get("choices");
-        if (!(choicesObj instanceof List) || ((List<?>) choicesObj).isEmpty()) {
-            throw new IllegalStateException("유효한 choices가 없습니다: " + choicesObj);
-        }
-
-        Object firstChoice = ((List<?>) choicesObj).get(0);
-        if (!(firstChoice instanceof Map)) {
-            throw new IllegalStateException("choice 형식이 잘못되었습니다: " + firstChoice);
-        }
-
-        Object messageObj = ((Map<?, ?>) firstChoice).get("message");
-        if (!(messageObj instanceof Map)) {
-            throw new IllegalStateException("message 필드가 없습니다: " + messageObj);
-        }
-
-        Object contentObj = ((Map<?, ?>) messageObj).get("content");
-        if (!(contentObj instanceof String)) {
-            throw new IllegalStateException("content 필드가 없습니다: " + contentObj);
-        }
-
-        return (String) contentObj;
+        ResponseEntity<Map> response = restTemplate.postForEntity(gptConfig.getApiUrl(), new HttpEntity<>(requestBody, headers), Map.class);
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
+        return (String) ((Map<String, Object>) choices.get(0).get("message")).get("content");
     }
 
-    private static String safeUpper(String s) {
-        return s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
+    private String formatDietLogs(List<DietRecord> records) {
+        if (records.isEmpty()) return "기록 없음";
+        StringBuilder sb = new StringBuilder();
+        for (DietRecord r : records) {
+            sb.append("[").append(r.getDietDate()).append("] ");
+            r.getMeals().forEach(m -> {
+                if(!m.getFoodItems().isEmpty()) sb.append(m.getMealType()).append(":").append(m.getFoodItems().get(0).getName()).append(" ");
+            });
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 }

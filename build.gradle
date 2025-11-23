@@ -26,11 +26,11 @@ dependencies {
 	// --- Spring Starters (Boot가 버전 관리) ---
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-validation' // ← Bean Validation(hibernate-validator) 포함
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
 	// --- DB Drivers ---
-	runtimeOnly 'com.mysql:mysql-connector-j'     // MySQL 드라이버는 런타임에만
-	testImplementation 'com.h2database:h2'        // H2는 테스트에서만 사용
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testImplementation 'com.h2database:h2'
 
 	// --- Security / JWT ---
 	implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -39,8 +39,20 @@ dependencies {
 	runtimeOnly   'io.jsonwebtoken:jjwt-impl:0.12.5'
 	runtimeOnly   'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
-	// --- AWS SDK ---
-	implementation 'software.amazon.awssdk:s3:2.25.11'
+	// --- AWS SDK (수정된 부분) ---
+	// 1. AWS SDK v2의 버전을 관리하는 BOM(Bill of Materials) 추가
+	//    (기존 s3:2.25.11 버전을 사용하셨기에 동일한 버전으로 BOM을 설정합니다)
+	implementation platform('software.amazon.awssdk:bom:2.25.11')
+
+	// 2. S3 (버전은 BOM이 관리하므로 제거)
+	implementation 'software.amazon.awssdk:s3'
+
+	// 3. [추가] S3Presigner (S3Uploader에서 Pre-signed URL 생성 시 필수)
+	implementation 'software.amazon.awssdk:s3-presigner'
+
+	// 4. [추가] StaticCredentialsProvider (S3Config에서 자격 증명 생성 시 필수)
+	implementation 'software.amazon.awssdk:auth'
+
 
 	// --- Lombok ---
 	compileOnly 'org.projectlombok:lombok:1.18.30'
