@@ -40,11 +40,9 @@ dependencies {
 	runtimeOnly   'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
 	// --- AWS SDK (수정됨: BOM 제거 및 버전 직접 명시) ---
-	// BOM 방식이 가끔 버전을 못 찾는 오류가 있어서, 안정적인 버전(2.21.1)을 직접 지정합니다.
-	implementation 'software.amazon.awssdk:s3:2.21.1'
-	implementation 'software.amazon.awssdk:s3-presigner:2.21.1'
-	implementation 'software.amazon.awssdk:auth:2.21.1'
-
+	implementation 'software.amazon.awssdk:s3:2.25.11'
+	implementation 'software.amazon.awssdk:s3-presigner:2.25.11'
+	implementation 'software.amazon.awssdk:auth:2.25.11'
 	// --- Lombok ---
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
