@@ -50,6 +50,15 @@ jobs:
           echo "cloud.aws.credentials.access-key=${{ secrets.CLOUD_AWS_CREDENTIALS_ACCESS_KEY }}" >> application.properties
           echo "cloud.aws.credentials.secret-key=${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}" >> application.properties
           
+          echo "aws.s3.access-key=${{ secrets.CLOUD_AWS_CREDENTIALS_ACCESS_KEY }}" >> application.properties
+          echo "aws.s3.secret-key=${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}" >> application.properties
+          
+          echo "cloud.aws.s3.bucket=${{ secrets.CLOUD_AWS_S3_BUCKET }}" >> application.properties
+          echo "aws.s3.bucket=${{ secrets.CLOUD_AWS_S3_BUCKET }}" >> application.properties
+          
+          echo "cloud.aws.region.static=${{ secrets.CLOUD_AWS_REGION_STATIC }}" >> application.properties
+          echo "aws.s3.region=${{ secrets.CLOUD_AWS_REGION_STATIC }}" >> application.properties
+          
           # FatSecret (아까 등록한 것들)
           echo "fatsecret.client-id=${{ secrets.FATSECRET_CLIENT_ID }}" >> application.properties
           echo "fatsecret.client-secret=${{ secrets.FATSECRET_CLIENT_SECRET }}" >> application.properties
