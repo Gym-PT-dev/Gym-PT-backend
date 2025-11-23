@@ -1,13 +1,10 @@
-# 워크플로우의 이름
 name: Deploy Spring Boot to AWS EC2
 
-# 언제 실행할 것인가: 'back' 브랜치에 'push'가 될 때
 on:
   push:
     branches:
-      - back # (사용 중인 브랜치 이름)
+      - back
 
-# 어떤 작업을 실행할 것인가
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -21,6 +18,77 @@ jobs:
           java-version: '21'
           distribution: 'corretto'
 
+      # [중요] 1. 빌드 전에 application.properties 생성 (여기에 모든 시크릿 주입)
+      - name: Create application.properties
+        run: |
+          # 1. 리소스 폴더로 이동 (폴더가 없으면 생성)
+          mkdir -p src/main/resources
+          cd src/main/resources
+          
+          # 2. 기존 파일이 있다면 지우고 새로 생성
+          rm -f application.properties
+          touch application.properties
+
+          # 3. 데이터베이스 설정 (Secrets -> Properties)
+          echo "spring.datasource.url=${{ secrets.SPRING_DATASOURCE_URL }}" >> application.properties
+          echo "spring.datasource.username=${{ secrets.SPRING_DATASOURCE_USERNAME }}" >> application.properties
+          echo "spring.datasource.password=${{ secrets.SPRING_DATASOURCE_PASSWORD }}" >> application.properties
+          echo "spring.jpa.hibernate.ddl-auto=${{ secrets.SPRING_JPA_HIBERNATE_DDL_AUTO }}" >> application.properties
+          
+          # 4. 기타 설정 (Jackson, File Upload)
+          echo "spring.jackson.time-zone=${{ secrets.SPRING_JACKSON_TIME_ZONE }}" >> application.properties
+          echo "spring.servlet.multipart.max-file-size=10MB" >> application.properties
+          echo "spring.servlet.multipart.max-request-size=10MB" >> application.properties
+          
+          # 5. FatSecret & OpenAI & AWS (소문자.점 표기법 사용 권장)
+          echo "gpt.api.key=${{ secrets.GPT_API_KEY }}" >> application.properties
+          
+          # AWS 관련 (대문자 환경변수 스타일보다는 프로퍼티 키 스타일 권장)
+          # (만약 코드에서 @Value("${cloud.aws.region.static}") 이렇게 쓴다면 아래처럼 적어야 함)
+          echo "cloud.aws.region.static=${{ secrets.CLOUD_AWS_REGION_STATIC }}" >> application.properties
+          echo "cloud.aws.s3.bucket=${{ secrets.CLOUD_AWS_S3_BUCKET }}" >> application.properties
+          echo "cloud.aws.credentials.access-key=${{ secrets.CLOUD_AWS_CREDENTIALS_ACCESS_KEY }}" >> application.properties
+          echo "cloud.aws.credentials.secret-key=${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}" >> application.properties
+          
+          echo "aws.s3.access-key=${{ secrets.CLOUD_AWS_CREDENTIALS_ACCESS_KEY }}" >> application.properties
+          echo "aws.s3.secret-key=${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}" >> application.properties
+          
+          echo "aws.s3.bucket-name=${{ secrets.CLOUD_AWS_S3_BUCKET }}" >> application.properties
+          
+          echo "cloud.aws.region.static=${{ secrets.CLOUD_AWS_REGION_STATIC }}" >> application.properties
+          echo "aws.s3.region=${{ secrets.CLOUD_AWS_REGION_STATIC }}" >> application.properties
+          
+          # FatSecret (아까 등록한 것들)
+          echo "fatsecret.client-id=${{ secrets.FATSECRET_CLIENT_ID }}" >> application.properties
+          echo "fatsecret.client-secret=${{ secrets.FATSECRET_CLIENT_SECRET }}" >> application.properties
+          echo "fatsecret.scope=${{ secrets.FATSECRET_SCOPE }}" >> application.properties
+
+          # OpenAI (추가된 것)
+          echo "openai.api.key=${{ secrets.OPENAI_API_KEY }}" >> application.properties
+          echo "openai.api.url=${{ secrets.OPENAI_API_URL }}" >> application.properties
+          
+          # [추가] Google OAuth
+          echo "google.client.id=${{ secrets.GOOGLE_CLIENT_ID }}" >> application.properties
+          echo "google.client.secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> application.properties
+
+          # [추가] JWT 설정 (만료 시간은 고정값이므로 직접 입력)
+          echo "jwt.secret=${{ secrets.JWT_SECRET }}" >> application.properties
+          echo "jwt.access.exp=3600" >> application.properties
+          echo "jwt.refresh.exp=1209600" >> application.properties
+
+          # [추가] CORS 설정 (테스트를 위해 모든 주소 허용 * 추천)
+          echo "app.cors.allowed-origins=*" >> application.properties
+
+          # [추가] 로깅 레벨
+          echo "logging.level.org.springframework.security=DEBUG" >> application.properties
+
+          # [중요] 백엔드 주소 (EC2 IP로 변경!!)
+          # 원래 코드: app.backendBaseUrl=http://172.30.1.4:8080
+          # 수정 코드: 아래 EC2 IP를 사용하세요.
+          echo "app.backendBaseUrl=http://13.236.119.207:8080" >> application.properties
+
+        shell: bash
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
@@ -30,9 +98,6 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean bootJar --no-daemon
 
-      # 5. 빌드가 완료된 .jar 파일을 EC2로 전송
-      #    source의 'build/libs/...' 경로를
-      #    target의 '/home/ec2-user/' 폴더 안에 그대로 생성합니다.
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -42,7 +107,7 @@ jobs:
           source: "build/libs/Gym_PT-0.0.1-SNAPSHOT.jar"
           target: "/home/ec2-user/"
 
-      # 6. EC2 서버에 SSH로 접속해서 재시작 명령어 실행 (★경로 수정★)
+      # [중요] 2. EC2에서는 단순히 실행만 함 (export 다 제거됨)
       - name: Restart Server on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -50,43 +115,21 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. 기존에 실행 중인 서버가 있다면 종료
-            # (★수정 1/2) "진짜" 전체 경로로 실행 중인 프로세스를 찾음
+            # 1. 기존 프로세스 종료
             PID=$(ps -ef | grep 'java -jar /home/ec2-user/build/libs/Gym_PT-0.0.1-SNAPSHOT.jar' | grep -v grep | awk '{print $2}')
             if [ -n "$PID" ]; then
               kill -9 $PID
               echo "Killed old process $PID"
             fi
             
-            # 2. 오래된 로그 파일 삭제
+            # 2. 로그 삭제
             rm -f /home/ec2-user/app.log
-            echo "Removed old app.log"
 
-            # 3. 13개의 환경 변수를 모두 export
-            export SPRING_DATASOURCE_URL='${{ secrets.SPRING_DATASOURCE_URL }}'
-            export SPRING_DATASOURCE_USERNAME='${{ secrets.SPRING_DATASOURCE_USERNAME }}'
-            export SPRING_DATASOURCE_PASSWORD='${{ secrets.SPRING_DATASOURCE_PASSWORD }}'
-            export SPRING_JPA_HIBERNATE_DDL_AUTO='${{ secrets.SPRING_JPA_HIBERNATE_DDL_AUTO }}'
-            export SPRING_JACKSON_TIME_ZONE='${{ secrets.SPRING_JACKSON_TIME_ZONE }}'
-            export SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE='${{ secrets.SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE }}'
-            export SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE='${{ secrets.SPRING_SERVLET_MAX_REQUEST_SIZE }}'
-            export GPT_API_KEY='${{ secrets.GPT_API_KEY }}'
-            export CLOUD_AWS_REGION_STATIC='${{ secrets.CLOUD_AWS_REGION_STATIC }}'
-            export CLOUD_AWS_S3_BUCKET='${{ secrets.CLOUD_AWS_S3_BUCKET }}'
-            export CLOUD_AWS_CREDENTIALS_ACCESS_KEY='${{ secrets.CLOUD_AWS_CREDENTIALS_ACCESS_KEY }}'
-            export CLOUD_AWS_CREDENTIALS_SECRET_KEY='${{ secrets.CLOUD_AWS_CREDENTIALS_SECRET_KEY }}'
-            export CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN='${{ secrets.CLOUD_AWS_CREDENTIALS_USE_DEFAULT_AWS_CREDENTIALS_CHAIN }}'
-
-            # 4. 새 서버 실행
-            # (★수정 2/2) "진짜" 전체 경로로 .jar 파일을 실행
+            # 3. 새 서버 실행 (환경변수 설정 불필요! 이미 jar 안에 들어있음)
             nohup java -jar /home/ec2-user/build/libs/Gym_PT-0.0.1-SNAPSHOT.jar > /home/ec2-user/app.log 2>&1 &
-            echo "Server restart command issued"
-
-            # 5. (디버깅) 서버가 켜질 때까지 5초간 기다림
-            echo "Waiting 5 seconds for server to start..."
+            
+            echo "Server restarted."
+            
+            # 4. 로그 확인 (5초 대기)
             sleep 5
-
-            # 6. (디버깅) "새로운" app.log 파일의 내용을 GitHub Actions 로그에 출력
-            echo "--- Displaying new app.log (max 30 lines) ---"
-            tail -n 30 /home/ec2-user/app.log
-            echo "------------------------------------------------"
+            tail -n 20 /home/ec2-user/app.log

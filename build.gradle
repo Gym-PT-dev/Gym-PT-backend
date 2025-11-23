@@ -15,57 +15,39 @@ java {
 
 repositories {
 	mavenCentral()
-}
-
-configurations {
-	// Mockito agent를 주입하기 위한 별도 구성
-	mockitoAgent
+	google() // [추가] 혹시 몰라 예비 저장소 추가
 }
 
 dependencies {
-	// --- Spring Starters (Boot가 버전 관리) ---
+	// Spring Boot
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-validation' // ← Bean Validation(hibernate-validator) 포함
-
-	// --- DB Drivers ---
-	runtimeOnly 'com.mysql:mysql-connector-j'     // MySQL 드라이버는 런타임에만
-	testImplementation 'com.h2database:h2'        // H2는 테스트에서만 사용
-
-	// --- Security / JWT ---
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// DB
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testImplementation 'com.h2database:h2'
+
+	// JWT
 	implementation 'com.nimbusds:nimbus-jose-jwt:9.37.3'
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
-	runtimeOnly   'io.jsonwebtoken:jjwt-impl:0.12.5'
-	runtimeOnly   'io.jsonwebtoken:jjwt-jackson:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
-	// --- AWS SDK ---
-	implementation 'software.amazon.awssdk:s3:2.25.11'
+	// --- AWS SDK (버전 변경: 2.25.27) ---
+	// 이 버전은 Maven Central에 확실히 존재합니다.
+	implementation 'software.amazon.awssdk:s3:2.20.43'
 
-	// --- Lombok ---
+	// Lombok
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
-	testCompileOnly 'org.projectlombok:lombok:1.18.30'
-	testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
 
-	// --- Test ---
+	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-	// --- Mockito (Agent 포함) ---
-	testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
-	testImplementation 'org.mockito:mockito-core:5.12.0'
-	testRuntimeOnly  'org.mockito:mockito-agent:5.12.0'
-	mockitoAgent     'org.mockito:mockito-agent:5.12.0'
 }
 
-// Mockito agent를 테스트 JVM에 주입
 tasks.withType(Test).configureEach {
 	useJUnitPlatform()
-	jvmArgs "-javaagent:${configurations.mockitoAgent.singleFile}"
-}
-
-// 컴파일러에 파라미터 이름 정보 유지(예: @PathVariable 등에서 유용)
-tasks.withType(JavaCompile).configureEach {
-	options.compilerArgs += ["-parameters"]
 }
