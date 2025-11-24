@@ -1,4 +1,4 @@
-package com.Gym_PT.controller;
+package com.Gym_PT.gpt;
 
 import com.Gym_PT.entity.*;
 import com.Gym_PT.gpt.GptDietService;

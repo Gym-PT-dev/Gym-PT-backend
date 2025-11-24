@@ -30,10 +30,18 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 🔓 인증 없이 열어둘 엔드포인트들
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/gpt/**").permitAll()  // 🔥 GPT 루틴/식단 공개
+
+                        // 🔒 인증 필요한 엔드포인트들
                         .requestMatchers("/api/users/me").authenticated()
                         .requestMatchers("/api/**").authenticated()
+
+                        // 그 외는 허용
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(new SkippableJwtFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
@@ -48,6 +56,7 @@ public class SecurityConfig {
 
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
+            // auth 관련 엔드포인트는 JWT 필터 스킵
             return request.getRequestURI().startsWith("/api/auth/");
         }
     }
