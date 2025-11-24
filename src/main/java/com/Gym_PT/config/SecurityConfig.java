@@ -35,7 +35,9 @@ public class SecurityConfig {
 
                         // 🔓 인증 없이 열어둘 엔드포인트들
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/gpt/**").permitAll()  // 🔥 GPT 루틴/식단 공개
+                        .requestMatchers("/api/gpt/**").permitAll()      // GPT 루틴/식단 공개
+                        .requestMatchers("/api/food/**").permitAll()     // 🔥 FoodLens 이미지 인식 공개
+                        .requestMatchers("/api/images/**").permitAll()   // 🔥 S3 이미지 업로드 공개(필요시)
 
                         // 🔒 인증 필요한 엔드포인트들
                         .requestMatchers("/api/users/me").authenticated()
@@ -44,7 +46,8 @@ public class SecurityConfig {
                         // 그 외는 허용
                         .anyRequest().permitAll()
                 )
-                .addFilterBefore(new SkippableJwtFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new SkippableJwtFilter(jwtService),
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -56,8 +59,9 @@ public class SecurityConfig {
 
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
+            String uri = request.getRequestURI();
             // auth 관련 엔드포인트는 JWT 필터 스킵
-            return request.getRequestURI().startsWith("/api/auth/");
+            return uri.startsWith("/api/auth/");
         }
     }
 }
