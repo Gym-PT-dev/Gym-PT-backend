@@ -1,13 +1,17 @@
 package com.Gym_PT.service;
 
 import com.Gym_PT.dto.DietRequestDto;
-import com.Gym_PT.entity.DietMeal.MealType;
+import com.Gym_PT.entity.MealType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -18,46 +22,82 @@ public class FatSecretConversionService {
     public DietRequestDto convertToDietDto(String fatSecretJson, MealType mealType) {
         try {
             JsonNode root = objectMapper.readTree(fatSecretJson);
-            JsonNode foodsNode = root.path("items");
-            List<DietRequestDto.FoodItemDto> foodList = new ArrayList<>();
 
-            if (foodsNode.isArray()) {
-                for (JsonNode item : foodsNode) {
-                    String name = item.path("food_entry_name").asText("Unknown");
-                    JsonNode nutri = item.path("eaten").path("total_nutritional_content");
+            // 🔥 FatSecret 실제 루트: "food_response" (배열)
+            JsonNode foodResponse = root.path("food_response");
 
-                    int kcal = 0, carbs = 0, protein = 0, fat = 0;
-                    if (!nutri.isMissingNode() && !nutri.isNull()) {
-                        kcal = parseInt(nutri.path("calories").asText());
-                        carbs = parseInt(nutri.path("carbohydrate").asText());
-                        protein = parseInt(nutri.path("protein").asText());
-                        fat = parseInt(nutri.path("fat").asText());
+            List<DietRequestDto.FoodDto> foodDtos = new ArrayList<>();
+
+            if (foodResponse.isArray()) {
+                for (JsonNode item : foodResponse) {
+
+                    String foodName = item.path("food_entry_name").asText(null);
+                    JsonNode eaten = item.path("eaten");
+                    JsonNode totalNutri = eaten.path("total_nutritional_content");
+
+                    if (foodName == null || totalNutri.isMissingNode()) {
+                        continue;
                     }
 
-                    DietRequestDto.FoodItemDto dto = new DietRequestDto.FoodItemDto();
-                    dto.setName(name);
-                    dto.setAmount("1인분"); // 기본값
-                    dto.setKcal(kcal);
-                    dto.setCarbs(carbs);
-                    dto.setProtein(protein);
-                    dto.setFat(fat);
-                    foodList.add(dto);
+                    // ----- 양/단위 정보 -----
+                    double units = eaten.path("units").asDouble(0);
+                    String singularDesc = eaten.path("singular_description").asText("");
+                    String pluralDesc = eaten.path("plural_description").asText("");
+                    String unitDesc = units <= 1.0 && !singularDesc.isEmpty()
+                            ? singularDesc
+                            : pluralDesc;
+
+                    double totalMetricAmount = eaten.path("total_metric_amount").asDouble(0);
+                    String metricDesc = eaten.path("metric_description").asText("g");
+
+                    String amount = String.format(
+                            Locale.US,
+                            "%.1f %s (%.0f %s)",
+                            units,
+                            unitDesc,
+                            totalMetricAmount,
+                            metricDesc
+                    ).trim();
+
+                    // ----- 영양 성분 (총량 기준) -----
+                    double calories = parseDoubleSafe(totalNutri.path("calories").asText("0"));
+                    double carbs = parseDoubleSafe(totalNutri.path("carbohydrate").asText("0"));
+                    double protein = parseDoubleSafe(totalNutri.path("protein").asText("0"));
+                    double fat = parseDoubleSafe(totalNutri.path("fat").asText("0"));
+
+                    DietRequestDto.FoodDto foodDto = new DietRequestDto.FoodDto();
+                    foodDto.setName(foodName);
+                    foodDto.setAmount(amount);
+                    foodDto.setKcal((int) Math.round(calories));
+                    foodDto.setCarbs(carbs);
+                    foodDto.setProtein(protein);
+                    foodDto.setFat(fat);
+
+                    foodDtos.add(foodDto);
                 }
             }
 
-            DietRequestDto requestDto = new DietRequestDto();
-            DietRequestDto.DietMealDto mealDto = new DietRequestDto.DietMealDto();
+            // ----- Meal DTO 구성 -----
+            DietRequestDto.MealDto mealDto = new DietRequestDto.MealDto();
             mealDto.setMealType(mealType);
-            mealDto.setFoods(foodList);
-            requestDto.setMeals(List.of(mealDto));
+            mealDto.setFoods(foodDtos);
 
-            return requestDto; // 날짜(Date) 없이 반환 (프론트에서 설정)
-        } catch (Exception e) {
-            throw new RuntimeException("FatSecret Parsing Error", e);
+            DietRequestDto dto = new DietRequestDto();
+            dto.setMeals(Collections.singletonList(mealDto));
+
+            System.out.println("[FatSecretConversionService] Parsed items = " + foodDtos.size());
+            return dto;
+
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to parse FatSecret JSON", e);
         }
     }
 
-    private int parseInt(String v) {
-        try { return (int) Math.round(Double.parseDouble(v)); } catch (Exception e) { return 0; }
+    private double parseDoubleSafe(String s) {
+        try {
+            return Double.parseDouble(s);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }
