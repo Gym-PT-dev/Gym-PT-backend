@@ -1,14 +1,3 @@
-package com.Gym_PT.service;
-
-import com.Gym_PT.dto.DietRequestDto;
-import com.Gym_PT.entity.DietMeal.MealType;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class FatSecretConversionService {
@@ -18,7 +7,10 @@ public class FatSecretConversionService {
     public DietRequestDto convertToDietDto(String fatSecretJson, MealType mealType) {
         try {
             JsonNode root = objectMapper.readTree(fatSecretJson);
-            JsonNode foodsNode = root.path("food_response");
+
+            // 🔥 여기만 수정
+            JsonNode foodsNode = root.path("items");
+
             List<DietRequestDto.FoodItemDto> foodList = new ArrayList<>();
 
             if (foodsNode.isArray()) {
@@ -41,8 +33,12 @@ public class FatSecretConversionService {
                     dto.setCarbs(carbs);
                     dto.setProtein(protein);
                     dto.setFat(fat);
+
                     foodList.add(dto);
                 }
+            } else {
+                // 디버그용: keys 찍어보기
+                System.out.println("[FatSecretConversionService] items 배열을 찾지 못했습니다. root = " + root.toString());
             }
 
             DietRequestDto requestDto = new DietRequestDto();
@@ -51,7 +47,7 @@ public class FatSecretConversionService {
             mealDto.setFoods(foodList);
             requestDto.setMeals(List.of(mealDto));
 
-            return requestDto; // 날짜(Date) 없이 반환 (프론트에서 설정)
+            return requestDto;
         } catch (Exception e) {
             throw new RuntimeException("FatSecret Parsing Error", e);
         }
