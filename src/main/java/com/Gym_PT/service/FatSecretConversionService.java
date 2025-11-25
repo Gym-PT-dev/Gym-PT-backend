@@ -1,7 +1,7 @@
 package com.Gym_PT.service;
 
 import com.Gym_PT.dto.DietRequestDto;
-import com.Gym_PT.entity.MealType;
+import com.Gym_PT.entity.DietMeal.MealType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
