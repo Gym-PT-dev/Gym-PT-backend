@@ -37,15 +37,26 @@ public class FoodRecognitionController {
         try {
             // 1. S3 업로드
             String s3Url = s3Uploader.uploadFile(file);
+            System.out.println("[FoodRecognitionController] S3 URL = " + s3Url);
 
             // 2. FatSecret API 호출 (Raw JSON String 받기)
             String rawJson = fatSecretService.recognizeImageFromUrl(s3Url);
+            System.out.println("[FoodRecognitionController] Raw FatSecret JSON = ");
+            System.out.println(rawJson);
 
             // 3. Raw JSON -> 우리 서버 DTO 변환
             MealType mealType = MealType.valueOf(mealTypeStr.toUpperCase());
             DietRequestDto cleanResult = conversionService.convertToDietDto(rawJson, mealType);
 
-            // 4. 결과 반환 (프론트엔드는 이 데이터를 보여주고, 수정 후 저장 API로 보냄)
+            // 디버그: 파싱된 음식 개수
+            int foodCount = 0;
+            if (cleanResult.getMeals() != null && !cleanResult.getMeals().isEmpty()
+                    && cleanResult.getMeals().get(0).getFoods() != null) {
+                foodCount = cleanResult.getMeals().get(0).getFoods().size();
+            }
+            System.out.println("[FoodRecognitionController] Parsed foods count = " + foodCount);
+
+            // 4. 결과 반환
             return ResponseEntity.ok(cleanResult);
 
         } catch (Exception e) {
