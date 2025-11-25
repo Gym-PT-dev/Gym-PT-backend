@@ -1,7 +1,7 @@
 package com.Gym_PT.service;
 
 import com.Gym_PT.dto.DietRequestDto;
-import com.Gym_PT.entity.DietMeal.MealType;
+import com.Gym_PT.entity.DietMeal.MealType;   // ✅ 엔티티 안의 enum 사용
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,10 +23,10 @@ public class FatSecretConversionService {
         try {
             JsonNode root = objectMapper.readTree(fatSecretJson);
 
-            // 🔥 FatSecret 실제 루트: "food_response" (배열)
+            // FatSecret 실제 루트: "food_response" (배열)
             JsonNode foodResponse = root.path("food_response");
 
-            List<DietRequestDto.FoodDto> foodDtos = new ArrayList<>();
+            List<DietRequestDto.FoodItemDto> foodDtos = new ArrayList<>();
 
             if (foodResponse.isArray()) {
                 for (JsonNode item : foodResponse) {
@@ -60,15 +60,20 @@ public class FatSecretConversionService {
                     ).trim();
 
                     // ----- 영양 성분 (총량 기준) -----
-                    double calories = parseDoubleSafe(totalNutri.path("calories").asText("0"));
-                    double carbs = parseDoubleSafe(totalNutri.path("carbohydrate").asText("0"));
-                    double protein = parseDoubleSafe(totalNutri.path("protein").asText("0"));
-                    double fat = parseDoubleSafe(totalNutri.path("fat").asText("0"));
+                    double caloriesD = parseDoubleSafe(totalNutri.path("calories").asText("0"));
+                    double carbsD = parseDoubleSafe(totalNutri.path("carbohydrate").asText("0"));
+                    double proteinD = parseDoubleSafe(totalNutri.path("protein").asText("0"));
+                    double fatD = parseDoubleSafe(totalNutri.path("fat").asText("0"));
 
-                    DietRequestDto.FoodDto foodDto = new DietRequestDto.FoodDto();
+                    int calories = (int) Math.round(caloriesD);
+                    int carbs = (int) Math.round(carbsD);
+                    int protein = (int) Math.round(proteinD);
+                    int fat = (int) Math.round(fatD);
+
+                    DietRequestDto.FoodItemDto foodDto = new DietRequestDto.FoodItemDto();
                     foodDto.setName(foodName);
                     foodDto.setAmount(amount);
-                    foodDto.setKcal((int) Math.round(calories));
+                    foodDto.setKcal(calories);
                     foodDto.setCarbs(carbs);
                     foodDto.setProtein(protein);
                     foodDto.setFat(fat);
@@ -78,7 +83,7 @@ public class FatSecretConversionService {
             }
 
             // ----- Meal DTO 구성 -----
-            DietRequestDto.MealDto mealDto = new DietRequestDto.MealDto();
+            DietRequestDto.DietMealDto mealDto = new DietRequestDto.DietMealDto();
             mealDto.setMealType(mealType);
             mealDto.setFoods(foodDtos);
 
