@@ -1,5 +1,6 @@
 package com.Gym_PT.service;
 
+import com.Gym_PT.dto.AddFoodSaveRequest;
 import com.Gym_PT.dto.DietRequestDto;
 import com.Gym_PT.dto.DietResponseDto;
 import com.Gym_PT.entity.*;
@@ -112,6 +113,85 @@ public class DietService {
         dietRecord.setTotalDailyKcal(dailyTotalKcal);
 
         // 6) 저장 후 ResponseDto로 변환
+        DietRecord savedRecord = dietRecordRepository.save(dietRecord);
+        return toResponseDto(savedRecord);
+    }
+
+    /**
+     * ✅ GPT/프론트에서 분석된 음식 1개를 추가하는 메서드
+     *  - userId + date 기준 DietRecord 찾거나 생성
+     *  - mealType 기준 DietMeal 찾거나 생성
+     *  - FoodItem 하나 추가
+     *  - 끼니 / 하루 총 kcal 재계산 후 DietResponseDto 반환
+     */
+    @Transactional
+    public DietResponseDto addFood(AddFoodSaveRequest req) {
+        Long userId = req.userId();
+
+        Users user = usersRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
+
+        LocalDate date = req.date();
+        if (date == null) {
+            throw new IllegalArgumentException("AddFoodSaveRequest.date is required");
+        }
+
+        // 1) user + date 기준으로 DietRecord 찾기 (없으면 생성)
+        DietRecord dietRecord = dietRecordRepository.findByUser_IdAndDietDate(userId, date)
+                .orElseGet(() -> DietRecord.builder()
+                        .user(user)
+                        .dietDate(date)
+                        .totalDailyKcal(0)
+                        .build()
+                );
+
+        // 2) mealType 기준으로 DietMeal 찾기 (없으면 생성)
+        MealType mealType = req.mealType();
+        if (mealType == null) {
+            throw new IllegalArgumentException("AddFoodSaveRequest.mealType is required");
+        }
+
+        DietMeal meal = Optional.ofNullable(dietRecord.getMeals())
+                .orElseGet(Collections::emptyList)
+                .stream()
+                .filter(m -> m.getMealType() == mealType)
+                .findFirst()
+                .orElseGet(() -> {
+                    DietMeal m = DietMeal.builder()
+                            .mealType(mealType)
+                            .totalKcal(0)
+                            .build();
+                    dietRecord.addMeal(m); // 연관관계 설정
+                    return m;
+                });
+
+        // 3) FoodItem 하나 추가
+        FoodItem food = FoodItem.builder()
+                .name(req.name())
+                .amount(req.amount())
+                .kcal(req.kcal())
+                .carbs(req.carbs())
+                .protein(req.protein())
+                .fat(req.fat())
+                .build();
+        meal.addFoodItem(food); // DietMeal <-> FoodItem 연관관계
+
+        // 4) 끼니 별 kcal 재계산
+        int mealKcal = Optional.ofNullable(meal.getFoodItems())
+                .orElseGet(Collections::emptyList)
+                .stream()
+                .mapToInt(f -> Optional.ofNullable(f.getKcal()).orElse(0))
+                .sum();
+        meal.setTotalKcal(mealKcal);
+
+        // 5) 하루 총 kcal 재계산
+        int dailyTotalKcal = Optional.ofNullable(dietRecord.getMeals())
+                .orElseGet(Collections::emptyList)
+                .stream()
+                .mapToInt(m -> Optional.ofNullable(m.getTotalKcal()).orElse(0))
+                .sum();
+        dietRecord.setTotalDailyKcal(dailyTotalKcal);
+
         DietRecord savedRecord = dietRecordRepository.save(dietRecord);
         return toResponseDto(savedRecord);
     }
