@@ -2,7 +2,11 @@ package com.Gym_PT.service;
 
 import com.Gym_PT.dto.WorkoutRequestDto;
 import com.Gym_PT.dto.WorkoutResponseDto;
-import com.Gym_PT.entity.*;
+import com.Gym_PT.entity.NonWeightRecord;
+import com.Gym_PT.entity.RunningRecord;
+import com.Gym_PT.entity.Users;
+import com.Gym_PT.entity.WeightRecord;
+import com.Gym_PT.entity.WorkoutRecord;
 import com.Gym_PT.repository.UsersRepository;
 import com.Gym_PT.repository.WorkoutRecordRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +27,9 @@ public class WorkoutService {
     private final WorkoutRecordRepository workoutRecordRepository;
 
     /**
-     * 🔹 프론트에서 LocalDate(yyyy-MM-dd)만 받아서
-     *    DB에는 LocalDateTime(날짜 + 현재 시각)으로 저장
+     * 🔹 운동 저장
+     *  - 요청 DTO는 LocalDate(date)만 가지지만
+     *  - DB에는 LocalDateTime(날짜 + 현재 시간)으로 저장
      */
     @Transactional
     public WorkoutRequestDto saveWorkout(Long userId, WorkoutRequestDto dto) {
@@ -35,9 +40,8 @@ public class WorkoutService {
         WorkoutRecord workoutRecord = new WorkoutRecord();
         workoutRecord.setUser(user);
 
-        // ✅ DTO는 LocalDate, 엔티티는 LocalDateTime
+        // DTO(LocalDate) + 현재 시간 → LocalDateTime
         LocalDate dtoDate = dto.getDate();
-        // 날짜는 프론트에서 받은 날짜, 시간은 서버 현재 시각으로 저장
         LocalDateTime workoutDateTime =
                 (dtoDate != null)
                         ? dtoDate.atTime(LocalTime.now())
@@ -90,8 +94,9 @@ public class WorkoutService {
      * 🔹 같은 날짜에 WorkoutRecord가 여러 개 있을 수 있다고 가정하고
      *    → List<WorkoutResponseDto> 로 전부 반환
      *
-     *   ⚠️ 엔티티는 LocalDateTime이므로,
-     *      해당 "날짜의 00:00 ~ 다음날 00:00 직전" 범위를 조회한다.
+     *   - 컨트롤러에서 LocalDate로 date를 받음
+     *   - 여기서 해당 날짜의 00:00 ~ 다음날 00:00 범위로 LocalDateTime 조회
+     *   - 응답 DTO의 date는 LocalDateTime 그대로 내려보냄
      */
     @Transactional(readOnly = true)
     public List<WorkoutResponseDto> getWorkoutListByUserAndDate(Long userId, LocalDate date) {
@@ -99,9 +104,7 @@ public class WorkoutService {
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
 
-        // 🔥 레포지토리는 이렇게 맞춰줘야 함:
-        // List<WorkoutRecord> findAllByUser_IdAndWorkoutDateBetween(
-        //        Long userId, LocalDateTime start, LocalDateTime end);
+        // 🔥 레포지토리는 findAllByUser_IdAndWorkoutDateBetween(...) 으로 구현되어 있어야 함
         List<WorkoutRecord> records =
                 workoutRecordRepository.findAllByUser_IdAndWorkoutDateBetween(userId, startOfDay, endOfDay);
 
@@ -111,8 +114,9 @@ public class WorkoutService {
             WorkoutResponseDto dto = new WorkoutResponseDto();
             dto.setUserId(userId);
 
-            // ✅ DTO는 여전히 LocalDate만 들고 있게 유지
-            dto.setDate(record.getWorkoutDate().toLocalDate());
+            // ❌ 예전: dto.setDate(record.getWorkoutDate().toLocalDate());
+            // ✅ 지금: LocalDateTime 그대로 넘김
+            dto.setDate(record.getWorkoutDate());
 
             // Running 매핑
             dto.setRunning(record.getRunningRecords().stream().map(r -> {
@@ -150,7 +154,7 @@ public class WorkoutService {
 
     /**
      * 🔹 해당 날짜의 WorkoutRecord들을 전부 삭제
-     *   (LocalDateTime 기준이므로 같은 방식으로 범위 삭제)
+     *   - 조회와 동일하게 00:00 ~ 다음날 00:00 범위로 삭제
      */
     @Transactional
     public void deleteWorkoutByUserAndDate(Long userId, LocalDate date) {
