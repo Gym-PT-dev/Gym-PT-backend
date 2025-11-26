@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 public class WorkoutRequestDto {
 
+    // 📌 사용자가 캘린더에서 선택한 "날짜" (시·분은 따로 안 받음)
     private LocalDate date;
 
     private List<RunningDto> running;
